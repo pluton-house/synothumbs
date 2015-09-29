@@ -52,8 +52,8 @@ class convertImage(threading.Thread):
             self.imagePath=self.queueIMG.get()
             self.imageDir,self.imageName = os.path.split(self.imagePath)
             self.thumbDir=os.path.join(self.imageDir,"@eaDir",self.imageName)
-            print ("\t[-]Now working on %s" % (self.imagePath))
             if os.path.isfile(os.path.join(self.thumbDir,xlName)) != 1:
+                print ("\t[-]Now working on %s" % (self.imagePath))
                 if os.path.isdir(self.thumbDir) != 1:
                     try:os.makedirs(self.thumbDir)
                     except:continue
@@ -107,6 +107,8 @@ class convertImage(threading.Thread):
                 self.offset_y = max((pSize[1] - self.image_size[1]) / 2, 0)
                 self.preview_img = ImageChops.offset(self.preview_img, int(self.offset_x), int(self.offset_y)) # offset has to be integer, not float
                 self.preview_img.save(os.path.join(self.thumbDir,pName), quality=90)
+            else:
+                print ("\t[-]Skipping %s, XL thumbnail already exists" % (self.imagePath))
             self.queueIMG.task_done()
 
 #########################################################################
@@ -132,7 +134,7 @@ class convertVideo(threading.Thread):
             self.videoDir,self.videoName = os.path.split(self.videoPath)
             self.thumbDir=os.path.join(self.videoDir,"@eaDir",self.videoName)
             if os.path.isfile(os.path.join(self.thumbDir,xlName)) != 1:
-                print ("Now working on %s" % (self.videoPath))
+                print ("\t[-]Now working on %s" % (self.videoPath))
                 if os.path.isdir(self.thumbDir) != 1:
                     try:os.makedirs(self.thumbDir)
                     except:continue
@@ -159,7 +161,8 @@ class convertVideo(threading.Thread):
                 self.image.save(os.path.join(self.thumbDir,xlName))
                 self.image.thumbnail(mSize)
                 self.image.save(os.path.join(self.thumbDir,mName))
-            
+            else:
+                print ("\t[-]Skipping %s, XL thumbnail already exists" % (self.videoPath))
             self.queueVID.task_done()
 
 #########################################################################
