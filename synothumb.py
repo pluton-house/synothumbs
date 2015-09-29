@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 # sudo mount_nfs -P 192.168.0.2:/volume1/photo /Users/phillips321/nfsmount
 # Author:       phillips321
+# Co-author:    devdogde
 # License:      CC BY-SA 3.0
 # Use:          home use only, commercial use by permission only
 # Released:     www.phillips321.co.uk
 # Dependencies: Pillow, libjpeg, libpng, dcraw, ffmpeg
 # Supports:     jpg, bmp, png, tif
-# Version:      5.0
+# Version:      6.0
 # ChangeLog:
 #       v6.0 - Python3 support, switch from PIL to Pillow
 #       v5.0 - addition of PREVIEW thumbnail type; check for proper video conversion command
