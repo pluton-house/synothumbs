@@ -4,10 +4,11 @@
 # License:      CC BY-SA 3.0
 # Use:          home use only, commercial use by permission only
 # Released:     www.phillips321.co.uk
-# Dependencies: PIL, libjpeg, libpng, dcraw, ffmpeg
+# Dependencies: Pillow, libjpeg, libpng, dcraw, ffmpeg
 # Supports:     jpg, bmp, png, tif
 # Version:      5.0
 # ChangeLog:
+#       v6.0 - Python3 support, switch from PIL to Pillow
 #       v5.0 - addition of PREVIEW thumbnail type; check for proper video conversion command
 #       v4.0 - addition of autorate (thanks Markus Luisser)
 #       v3.1 - filename fix (_ instead of :) and improvement of rendering (antialias and quality=90 - thanks to alkopedia)
@@ -18,12 +19,9 @@
 # ToDo:
 #       add more raw formats
 #       add more movie formats
-import os,sys,Image,Queue,threading,time,subprocess,shlex,ImageChops
-
-try:
-    from cStringIO import StringIO
-except:
-    from StringIO import StringIO
+import os,sys,queue,threading,time,subprocess,shlex
+from PIL import Image,ImageChops #PIL is provided by Pillow
+from io import StringIO
 
 
 #########################################################################
@@ -53,7 +51,7 @@ class convertImage(threading.Thread):
             self.imagePath=self.queueIMG.get()
             self.imageDir,self.imageName = os.path.split(self.imagePath)
             self.thumbDir=os.path.join(self.imageDir,"@eaDir",self.imageName)
-            print "\t[-]Now working on %s" % (self.imagePath)
+            print ("\t[-]Now working on %s" % (self.imagePath))
             if os.path.isfile(os.path.join(self.thumbDir,xlName)) != 1:
                 if os.path.isdir(self.thumbDir) != 1:
                     try:os.makedirs(self.thumbDir)
@@ -106,7 +104,7 @@ class convertImage(threading.Thread):
                 self.preview_img = self.image.crop((0, 0, pSize[0], pSize[1]))
                 self.offset_x = max((pSize[0] - self.image_size[0]) / 2, 0)
                 self.offset_y = max((pSize[1] - self.image_size[1]) / 2, 0)
-                self.preview_img = ImageChops.offset(self.preview_img, self.offset_x, self.offset_y)
+                self.preview_img = ImageChops.offset(self.preview_img, int(self.offset_x), int(self.offset_y)) # offset has to be integer, not float
                 self.preview_img.save(os.path.join(self.thumbDir,pName), quality=90)
             self.queueIMG.task_done()
 
@@ -133,15 +131,15 @@ class convertVideo(threading.Thread):
             self.videoDir,self.videoName = os.path.split(self.videoPath)
             self.thumbDir=os.path.join(self.videoDir,"@eaDir",self.videoName)
             if os.path.isfile(os.path.join(self.thumbDir,xlName)) != 1:
-                print "Now working on %s" % (self.videoPath)
+                print ("Now working on %s" % (self.videoPath))
                 if os.path.isdir(self.thumbDir) != 1:
                     try:os.makedirs(self.thumbDir)
                     except:continue
 		# Check video conversion command and convert video to flv
                 if self.is_tool("ffmpeg"):
-			self.ffmpegcmd = "ffmpeg -loglevel panic -i '%s' -y -ar 44100 -r 12 -ac 2 -f flv -qscale 5 -s 320x180 -aspect 320:180 '%s/SYNOPHOTO:FILM.flv'" % (self.videoPath,self.thumbDir) # ffmpeg replaced by avconv on ubuntu
+                    self.ffmpegcmd = "ffmpeg -loglevel panic -i '%s' -y -ar 44100 -r 12 -ac 2 -f flv -qscale 5 -s 320x180 -aspect 320:180 '%s/SYNOPHOTO:FILM.flv'" % (self.videoPath,self.thumbDir) # ffmpeg replaced by avconv on ubuntu
                 elif self.is_tool("avconv"):
-			self.ffmpegcmd = "avconv -loglevel panic -i '%s' -y -ar 44100 -r 12 -ac 2 -f flv -qscale 5 -s 320x180 -aspect 320:180 '%s/SYNOPHOTO:FILM.flv'" % (self.videoPath,self.thumbDir)
+                    self.ffmpegcmd = "avconv -loglevel panic -i '%s' -y -ar 44100 -r 12 -ac 2 -f flv -qscale 5 -s 320x180 -aspect 320:180 '%s/SYNOPHOTO:FILM.flv'" % (self.videoPath,self.thumbDir)
                 else: return False
                 self.ffmpegproc = subprocess.Popen(shlex.split(self.ffmpegcmd), stdout=subprocess.PIPE)
                 self.ffmpegproc.communicate()[0]
@@ -149,9 +147,9 @@ class convertVideo(threading.Thread):
                 # Create video thumbs
                 self.tempThumb=os.path.join("/tmp",os.path.splitext(self.videoName)[0]+".jpg")
                 if self.is_tool("ffmpeg"):
-			self.ffmpegcmdThumb = "ffmpeg -loglevel panic -i '%s' -y -an -ss 00:00:03 -an -r 1 -vframes 1 '%s'" % (self.videoPath,self.tempThumb) # ffmpeg replaced by avconv on ubuntu
+                    self.ffmpegcmdThumb = "ffmpeg -loglevel panic -i '%s' -y -an -ss 00:00:03 -an -r 1 -vframes 1 '%s'" % (self.videoPath,self.tempThumb) # ffmpeg replaced by avconv on ubuntu
                 elif self.is_tool("avconv"):
-			self.ffmpegcmdThumb = "avconv -loglevel panic -i '%s' -y -an -ss 00:00:03 -an -r 1 -vframes 1 '%s'" % (self.videoPath,self.tempThumb)
+                    self.ffmpegcmdThumb = "avconv -loglevel panic -i '%s' -y -an -ss 00:00:03 -an -r 1 -vframes 1 '%s'" % (self.videoPath,self.tempThumb)
                 else: return False
                 self.ffmpegThumbproc = subprocess.Popen(shlex.split(self.ffmpegcmdThumb), stdout=subprocess.PIPE)
                 self.ffmpegThumbproc.communicate()[0]
@@ -167,17 +165,17 @@ class convertVideo(threading.Thread):
 # Main
 #########################################################################
 def main():
-    queueIMG = Queue.Queue()
-    queueVID = Queue.Queue()
+    queueIMG = queue.Queue()
+    queueVID = queue.Queue()
     try:
         rootdir=sys.argv[1]
     except:
-        print "Usage: %s directory" % sys.argv[0]
+        print ("Usage: %s directory" % sys.argv[0])
         sys.exit(0)
 
     # Finds all images of type in extensions array
     imageList=[]
-    print "[+] Looking for images and populating queue (This might take a while...)"
+    print ("[+] Looking for images and populating queue (This might take a while...)")
     for path, subFolders, files in os.walk(rootdir):
         for file in files:
             ext=os.path.splitext(file)[1].lower()
@@ -186,8 +184,8 @@ def main():
                     if file != ".DS_Store" and file != ".apdisk" and file != "Thumbs.db": # maybe remove
                         imageList.append(os.path.join(path,file))
 
-    print "[+] We have found %i images in search directory" % len(imageList)
-    raw_input("\tPress Enter to continue or Ctrl-C to quit")
+    print ("[+] We have found %i images in search directory" % len(imageList))
+    input("\tPress Enter to continue or Ctrl-C to quit")
 
     #spawn a pool of threads
     for i in range(NumOfThreads): #number of threads
@@ -204,7 +202,7 @@ def main():
 
     # Finds all videos of type in extensions array
     videoList=[]
-    print "[+] Looking for videos and populating queue (This might take a while...)"
+    print ("[+] Looking for videos and populating queue (This might take a while...)")
     for path, subFolders, files in os.walk(rootdir):
         for file in files:
             ext=os.path.splitext(file)[1].lower()
@@ -213,8 +211,8 @@ def main():
                     if file != ".DS_Store" and file != ".apdisk" and file != "Thumbs.db": #maybe remove?
                         videoList.append(os.path.join(path,file))
 
-    print "[+] We have found %i videos in search directory" % len(videoList)
-    raw_input("\tPress Enter to continue or Ctrl-C to quit")
+    print ("[+] We have found %i videos in search directory" % len(videoList))
+    input("\tPress Enter to continue or Ctrl-C to quit")
 
     #spawn a pool of threads
     for i in range(NumOfThreads): #number of threads
@@ -229,7 +227,7 @@ def main():
     queueVID.join()
 
     endTime=time.time()
-    print "Time to complete %i" % (endTime-startTime)
+    print ("Time to complete %i" % (endTime-startTime))
 
     sys.exit(0)
 
