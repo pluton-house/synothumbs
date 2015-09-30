@@ -9,6 +9,7 @@
 # Supports:     jpg, bmp, png, tif
 # Version:      6.0
 # ChangeLog:
+#       v6.1 - only create M, XL and Preview photo thumbnails
 #       v6.0 - Python3 support, switch from PIL to Pillow
 #       v5.0 - addition of PREVIEW thumbnail type; check for proper video conversion command
 #       v4.0 - addition of autorate (thanks Markus Luisser)
@@ -89,16 +90,17 @@ class convertImage(threading.Thread):
 
                 #### end of orientation part
 
+                #It seems that PhotoStation6 does only create M, XL and Preview thumbnails.
                 self.image.thumbnail(xlSize, Image.ANTIALIAS)
                 self.image.save(os.path.join(self.thumbDir,xlName), quality=90)
-                self.image.thumbnail(lSize, Image.ANTIALIAS)
-                self.image.save(os.path.join(self.thumbDir,lName), quality=90)
-                self.image.thumbnail(bSize, Image.ANTIALIAS)
-                self.image.save(os.path.join(self.thumbDir,bName), quality=90)
+                #self.image.thumbnail(lSize, Image.ANTIALIAS)
+                #self.image.save(os.path.join(self.thumbDir,lName), quality=90)
+                #self.image.thumbnail(bSize, Image.ANTIALIAS)
+                #self.image.save(os.path.join(self.thumbDir,bName), quality=90)
                 self.image.thumbnail(mSize, Image.ANTIALIAS)
                 self.image.save(os.path.join(self.thumbDir,mName), quality=90)
-                self.image.thumbnail(sSize, Image.ANTIALIAS)
-                self.image.save(os.path.join(self.thumbDir,sName), quality=90)
+                #self.image.thumbnail(sSize, Image.ANTIALIAS)
+                #self.image.save(os.path.join(self.thumbDir,sName), quality=90)
                 self.image.thumbnail(pSize, Image.ANTIALIAS)
                 # pad out image
                 self.image_size = self.image.size
@@ -138,21 +140,38 @@ class convertVideo(threading.Thread):
                 if os.path.isdir(self.thumbDir) != 1:
                     try:os.makedirs(self.thumbDir)
                     except:continue
-		# Check video conversion command and convert video to flv
+		        # Check video conversion command and convert video to flv
                 if self.is_tool("ffmpeg"):
-                    self.ffmpegcmd = "ffmpeg -loglevel panic -i '%s' -y -ar 44100 -r 12 -ac 2 -f flv -qscale 5 -s 320x180 -aspect 320:180 '%s/SYNOPHOTO:FILM.flv'" % (self.videoPath,self.thumbDir) # ffmpeg replaced by avconv on ubuntu
+                    #TODO: Get optimal ffmpg command especially for rotated videos.
+                    self.ffmpegcmd = "ffmpeg -i '%s' -y -vf \"scale=426:-1\" '%s/SYNOPHOTO_FILM.flv'" % (self.videoPath,self.thumbDir)
                 elif self.is_tool("avconv"):
-                    self.ffmpegcmd = "avconv -loglevel panic -i '%s' -y -ar 44100 -r 12 -ac 2 -f flv -qscale 5 -s 320x180 -aspect 320:180 '%s/SYNOPHOTO:FILM.flv'" % (self.videoPath,self.thumbDir)
-                else: return False
+                    self.ffmpegcmd = "avconv -loglevel panic -i '%s' -y -ar 44100 -r 12 -ac 2 -f flv -qscale 5 -s 320x180 -aspect 320:180 '%s/SYNOPHOTO:FILM.flv'" % (self.videoPath,self.thumbDir) # ffmpeg replaced by avconv on ubuntu
+                else:
+                    print ("\t[!]Cannot convert video, ffmpg is missing")
+                    return False
                 self.ffmpegproc = subprocess.Popen(shlex.split(self.ffmpegcmd), stdout=subprocess.PIPE)
                 self.ffmpegproc.communicate()[0]
-            
+
+                #Create mp4
+                if self.is_tool("ffmpeg"):
+                    #TODO: Get optimal ffmpg command especially for rotated videos.
+                    #TODO: As we just do a copy, couldn't we just copy the source file if it is already an mp4?
+                    self.ffmpegcmd = "ffmpeg -i '%s' -vcodec copy -acodec copy -y '%s/SYNOPHOTO_FILM_H264.mp4'" % (self.videoPath,self.thumbDir)
+                else:
+                    print ("\t[!]Cannot convert video, ffmpg is missing")
+                    return False
+                self.ffmpegproc = subprocess.Popen(shlex.split(self.ffmpegcmd), stdout=subprocess.PIPE)
+                self.ffmpegproc.communicate()[0]
+
+
+
                 # Create video thumbs
                 self.tempThumb=os.path.join("/tmp",os.path.splitext(self.videoName)[0]+".jpg")
                 if self.is_tool("ffmpeg"):
-                    self.ffmpegcmdThumb = "ffmpeg -loglevel panic -i '%s' -y -an -ss 00:00:03 -an -r 1 -vframes 1 '%s'" % (self.videoPath,self.tempThumb) # ffmpeg replaced by avconv on ubuntu
+                    #self.ffmpegcmdThumb = "ffmpeg -loglevel panic -y -i '%s' -vf  \"thumbnail,scale=640:360\" -frames:v 1 '%s'" % (self.videoPath,self.tempThumb)
+                    self.ffmpegcmdThumb = "ffmpeg -loglevel panic -y -i '%s' -vf  \"thumbnail\" -frames:v 1 '%s'" % (self.videoPath,self.tempThumb)
                 elif self.is_tool("avconv"):
-                    self.ffmpegcmdThumb = "avconv -loglevel panic -i '%s' -y -an -ss 00:00:03 -an -r 1 -vframes 1 '%s'" % (self.videoPath,self.tempThumb)
+                    self.ffmpegcmdThumb = "avconv -loglevel panic -i '%s' -y -an -ss 00:00:03 -an -r 1 -vframes 1 '%s'" % (self.videoPath,self.tempThumb) # ffmpeg replaced by avconv on ubuntu
                 else: return False
                 self.ffmpegThumbproc = subprocess.Popen(shlex.split(self.ffmpegcmdThumb), stdout=subprocess.PIPE)
                 self.ffmpegThumbproc.communicate()[0]
