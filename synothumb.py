@@ -57,7 +57,7 @@ class convertImage(threading.Thread):
                 if os.path.isdir(self.thumbDir) != 1:
                     try:os.makedirs(self.thumbDir)
                     except:continue
-                
+
                 #Following if statements converts raw images using dcraw first
                 if os.path.splitext(self.imagePath)[1].lower() == ".cr2":
                     self.dcrawcmd = "dcraw -c -b 8 -q 0 -w -H 5 '%s'" % self.imagePath
@@ -70,22 +70,21 @@ class convertImage(threading.Thread):
                 ###### Check image orientation and rotate if necessary
                 ## code adapted from: http://www.lifl.fr/~riquetd/auto-rotating-pictures-using-pil.html
                 self.exif = self.image._getexif()
-    
-                if not self.exif:
-                    return False
-            
-                self.orientation_key = 274 # cf ExifTags
-                if self.orientation_key in self.exif:
-                    self.orientation = self.exif[self.orientation_key]
-            
-                    rotate_values = {
-                        3: 180,
-                        6: 270,
-                        8: 90
-                    }
-            
-                    if self.orientation in rotate_values:
-                        self.image=self.image.rotate(rotate_values[self.orientation])
+
+                if self.exif:
+
+                    self.orientation_key = 274 # cf ExifTags
+                    if self.orientation_key in self.exif:
+                        self.orientation = self.exif[self.orientation_key]
+
+                        rotate_values = {
+                            3: 180,
+                            6: 270,
+                            8: 90
+                        }
+
+                        if self.orientation in rotate_values:
+                            self.image=self.image.rotate(rotate_values[self.orientation])
 
                 #### end of orientation part
 
@@ -125,7 +124,7 @@ class convertVideo(threading.Thread):
             if e.errno == os.errno.ENOENT:
                 return False
         return True
-    
+
     def run(self):
         while True:
             self.videoPath=self.queueVID.get()
@@ -144,7 +143,7 @@ class convertVideo(threading.Thread):
                 else: return False
                 self.ffmpegproc = subprocess.Popen(shlex.split(self.ffmpegcmd), stdout=subprocess.PIPE)
                 self.ffmpegproc.communicate()[0]
-            
+
                 # Create video thumbs
                 self.tempThumb=os.path.join("/tmp",os.path.splitext(self.videoName)[0]+".jpg")
                 if self.is_tool("ffmpeg"):
@@ -159,7 +158,7 @@ class convertVideo(threading.Thread):
                 self.image.save(os.path.join(self.thumbDir,xlName))
                 self.image.thumbnail(mSize)
                 self.image.save(os.path.join(self.thumbDir,mName))
-            
+
             self.queueVID.task_done()
 
 #########################################################################
@@ -234,4 +233,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
