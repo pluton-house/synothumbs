@@ -69,7 +69,10 @@ class convertImage(threading.Thread):
 
                 ###### Check image orientation and rotate if necessary
                 ## code adapted from: http://www.lifl.fr/~riquetd/auto-rotating-pictures-using-pil.html
-                self.exif = self.image._getexif()
+                try:
+                    self.exif = self.image._getexif()
+                except:
+                    pass
 
                 if self.exif:
 
@@ -181,7 +184,7 @@ def main():
             ext=os.path.splitext(file)[1].lower()
             if any(x in ext for x in imageExtensions):#check if extensions matches ext
                 if "@eaDir" not in path:
-                    if file != ".DS_Store" and file != ".apdisk" and file != "Thumbs.db": # maybe remove
+                    if file != "Thumbs.db" and file[0] != ".": # maybe remove
                         imageList.append(os.path.join(path,file))
 
     print ("[+] We have found %i images in search directory" % len(imageList))
@@ -208,7 +211,7 @@ def main():
             ext=os.path.splitext(file)[1].lower()
             if any(x in ext for x in videoExtensions):#check if extensions matches ext
                 if "@eaDir" not in path:
-                    if file != ".DS_Store" and file != ".apdisk" and file != "Thumbs.db": #maybe remove?
+                    if file != "Thumbs.db" and file[0] != ".": #maybe remove?
                         videoList.append(os.path.join(path,file))
 
     print ("[+] We have found %i videos in search directory" % len(videoList))
