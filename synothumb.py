@@ -1,26 +1,16 @@
 #!/usr/bin/env python
-# sudo mount_nfs -P 192.168.0.2:/volume1/photo /Users/phillips321/nfsmount
+# cd; mkdir mnt_photo
+# sudo mount -t {synology-ip-address}:/volume1/photo mnt_photo/
 # Author:       phillips321
-# Co-author:    devdogde
+# Co-authors:   devdogde, sirrahd, AndrewFreemantle
 # License:      CC BY-SA 3.0
 # Use:          home use only, commercial use by permission only
 # Released:     www.phillips321.co.uk
+# Instructions: www.fatlemon.co.uk/synothumbs
 # Dependencies: Pillow, libjpeg, libpng, dcraw, ffmpeg
-# Supports:     jpg, bmp, png, tif
-# Version:      6.0
-# ChangeLog:
-#       v6.0 - Python3 support, switch from PIL to Pillow
-#       v5.0 - addition of PREVIEW thumbnail type; check for proper video conversion command
-#       v4.0 - addition of autorate (thanks Markus Luisser)
-#       v3.1 - filename fix (_ instead of :) and improvement of rendering (antialias and quality=90 - thanks to alkopedia)
-#       v3.0 - Video support 
-#       v2.1 - CR2 raw support
-#       v2.0 - multithreaded
-#       v1.0 - First release
-# ToDo:
-#       add more raw formats
-#       add more movie formats
-import os,sys,queue,threading,time,subprocess,shlex
+# Supports:     jpg, png, tif, bmp, cr2 (raw), mov, m4v, mp4
+import os,sys,threading,time,subprocess,shlex
+from Queue import Queue
 from PIL import Image,ImageChops #PIL is provided by Pillow
 from io import StringIO
 
@@ -43,16 +33,17 @@ pName="SYNOPHOTO_THUMB_PREVIEW.jpg" ; pSize=(120,160) #Preview, keep ratio, pad 
 # Images Class
 #########################################################################
 class convertImage(threading.Thread):
-    def __init__(self,queueIMG):
+    def __init__(self,queueIMG,badImageFileList):
         threading.Thread.__init__(self)
         self.queueIMG=queueIMG
+        self.badImageFileList=badImageFileList
 
     def run(self):
         while True:
             self.imagePath=self.queueIMG.get()
             self.imageDir,self.imageName = os.path.split(self.imagePath)
             self.thumbDir=os.path.join(self.imageDir,"@eaDir",self.imageName)
-            print ("\t[-]Now working on %s" % (self.imagePath))
+            print ("  [-] Now working on %s" % (self.imagePath))
             if os.path.isfile(os.path.join(self.thumbDir,xlName)) != 1:
                 if os.path.isdir(self.thumbDir) != 1:
                     try:os.makedirs(self.thumbDir)
@@ -86,29 +77,38 @@ class convertImage(threading.Thread):
                             8: 90
                         }
 
-                        if self.orientation in rotate_values:
-                            self.image=self.image.rotate(rotate_values[self.orientation])
+                        try:
+                            if self.orientation in rotate_values:
+                                self.image=self.image.rotate(rotate_values[self.orientation])
+                        except:
+                            pass
 
                 #### end of orientation part
 
-                self.image.thumbnail(xlSize, Image.ANTIALIAS)
-                self.image.save(os.path.join(self.thumbDir,xlName), quality=90)
-                self.image.thumbnail(lSize, Image.ANTIALIAS)
-                self.image.save(os.path.join(self.thumbDir,lName), quality=90)
-                self.image.thumbnail(bSize, Image.ANTIALIAS)
-                self.image.save(os.path.join(self.thumbDir,bName), quality=90)
-                self.image.thumbnail(mSize, Image.ANTIALIAS)
-                self.image.save(os.path.join(self.thumbDir,mName), quality=90)
-                self.image.thumbnail(sSize, Image.ANTIALIAS)
-                self.image.save(os.path.join(self.thumbDir,sName), quality=90)
-                self.image.thumbnail(pSize, Image.ANTIALIAS)
-                # pad out image
-                self.image_size = self.image.size
-                self.preview_img = self.image.crop((0, 0, pSize[0], pSize[1]))
-                self.offset_x = max((pSize[0] - self.image_size[0]) / 2, 0)
-                self.offset_y = max((pSize[1] - self.image_size[1]) / 2, 0)
-                self.preview_img = ImageChops.offset(self.preview_img, int(self.offset_x), int(self.offset_y)) # offset has to be integer, not float
-                self.preview_img.save(os.path.join(self.thumbDir,pName), quality=90)
+                try:
+                    self.image.thumbnail(xlSize, Image.ANTIALIAS)
+                    self.image.save(os.path.join(self.thumbDir,xlName), quality=90)
+                    self.image.thumbnail(lSize, Image.ANTIALIAS)
+                    self.image.save(os.path.join(self.thumbDir,lName), quality=90)
+                    self.image.thumbnail(bSize, Image.ANTIALIAS)
+                    self.image.save(os.path.join(self.thumbDir,bName), quality=90)
+                    self.image.thumbnail(mSize, Image.ANTIALIAS)
+                    self.image.save(os.path.join(self.thumbDir,mName), quality=90)
+                    self.image.thumbnail(sSize, Image.ANTIALIAS)
+                    self.image.save(os.path.join(self.thumbDir,sName), quality=90)
+                    self.image.thumbnail(pSize, Image.ANTIALIAS)
+                    # pad out image
+                    self.image_size = self.image.size
+                    self.preview_img = self.image.crop((0, 0, pSize[0], pSize[1]))
+                    self.offset_x = max((pSize[0] - self.image_size[0]) / 2, 0)
+                    self.offset_y = max((pSize[1] - self.image_size[1]) / 2, 0)
+                    self.preview_img = ImageChops.offset(self.preview_img, int(self.offset_x), int(self.offset_y)) # offset has to be integer, not float
+                    self.preview_img.save(os.path.join(self.thumbDir,pName), quality=90)
+                except IOError:
+                    ## image file is corrupt / can't be read / or we can't write to the mounted share
+                    with open(self.badImageFileList, "a") as badFileList:
+                        badFileList.write(self.imagePath + '\n')
+
             self.queueIMG.task_done()
 
 #########################################################################
@@ -134,7 +134,7 @@ class convertVideo(threading.Thread):
             self.videoDir,self.videoName = os.path.split(self.videoPath)
             self.thumbDir=os.path.join(self.videoDir,"@eaDir",self.videoName)
             if os.path.isfile(os.path.join(self.thumbDir,xlName)) != 1:
-                print ("Now working on %s" % (self.videoPath))
+                print ("  [-] Now working on %s" % (self.videoPath))
                 if os.path.isdir(self.thumbDir) != 1:
                     try:os.makedirs(self.thumbDir)
                     except:continue
@@ -168,8 +168,8 @@ class convertVideo(threading.Thread):
 # Main
 #########################################################################
 def main():
-    queueIMG = queue.Queue()
-    queueVID = queue.Queue()
+    queueIMG = Queue()
+    queueVID = Queue()
     try:
         rootdir=sys.argv[1]
     except:
@@ -188,11 +188,11 @@ def main():
                         imageList.append(os.path.join(path,file))
 
     print ("[+] We have found %i images in search directory" % len(imageList))
-    input("\tPress Enter to continue or Ctrl-C to quit")
+    #input("\tPress Enter to continue or Ctrl-C to quit")
 
     #spawn a pool of threads
     for i in range(NumOfThreads): #number of threads
-        t=convertImage(queueIMG)
+        t=convertImage(queueIMG, os.path.join(rootdir, "synothumb-bad-file-list.txt"))
         t.setDaemon(True)
         t.start()
 
@@ -215,7 +215,7 @@ def main():
                         videoList.append(os.path.join(path,file))
 
     print ("[+] We have found %i videos in search directory" % len(videoList))
-    input("\tPress Enter to continue or Ctrl-C to quit")
+    #input("\tPress Enter to continue or Ctrl-C to quit")
 
     #spawn a pool of threads
     for i in range(NumOfThreads): #number of threads
