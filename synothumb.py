@@ -138,7 +138,7 @@ class convertVideo(threading.Thread):
                 if os.path.isdir(self.thumbDir) != 1:
                     try:os.makedirs(self.thumbDir)
                     except:continue
-		# Check video conversion command and convert video to flv
+                # Check video conversion command and convert video to flv
                 if self.is_tool("ffmpeg"):
                     self.ffmpegcmd = "ffmpeg -loglevel panic -i '%s' -y -ar 44100 -r 12 -ac 2 -f flv -qscale 5 -s 320x180 -aspect 320:180 '%s/SYNOPHOTO:FILM.flv'" % (self.videoPath,self.thumbDir) # ffmpeg replaced by avconv on ubuntu
                 elif self.is_tool("avconv"):
@@ -150,18 +150,19 @@ class convertVideo(threading.Thread):
                 # Create video thumbs
                 self.tempThumb=os.path.join("/tmp",os.path.splitext(self.videoName)[0]+".jpg")
                 if self.is_tool("ffmpeg"):
-                    self.ffmpegcmdThumb = "ffmpeg -loglevel panic -i '%s' -y -an -ss 00:00:03 -an -r 1 -vframes 1 '%s'" % (self.videoPath,self.tempThumb) # ffmpeg replaced by avconv on ubuntu
+                    self.ffmpegcmdThumb = "ffmpeg -loglevel panic -i '%s' -y -an -ss 00:00:01 -an -r 1 -vframes 1 '%s'" % (self.videoPath,self.tempThumb) # ffmpeg replaced by avconv on ubuntu
                 elif self.is_tool("avconv"):
-                    self.ffmpegcmdThumb = "avconv -loglevel panic -i '%s' -y -an -ss 00:00:03 -an -r 1 -vframes 1 '%s'" % (self.videoPath,self.tempThumb)
+                    self.ffmpegcmdThumb = "avconv -loglevel panic -i '%s' -y -an -ss 00:00:01 -an -r 1 -vframes 1 '%s'" % (self.videoPath,self.tempThumb)
                 else: return False
-                self.ffmpegThumbproc = subprocess.Popen(shlex.split(self.ffmpegcmdThumb), stdout=subprocess.PIPE)
-                self.ffmpegThumbproc.communicate()[0]
-                self.image=Image.open(self.tempThumb)
-                self.image.thumbnail(xlSize)
-                self.image.save(os.path.join(self.thumbDir,xlName))
-                self.image.thumbnail(mSize)
-                self.image.save(os.path.join(self.thumbDir,mName))
-
+                try:
+                    self.ffmpegThumbproc = subprocess.Popen(shlex.split(self.ffmpegcmdThumb), stdout=subprocess.PIPE)
+                    self.ffmpegThumbproc.communicate()[0]
+                    self.image=Image.open(self.tempThumb)
+                    self.image.thumbnail(xlSize)
+                    self.image.save(os.path.join(self.thumbDir,xlName))
+                    self.image.thumbnail(mSize)
+                    self.image.save(os.path.join(self.thumbDir,mName))
+                except:continue
             self.queueVID.task_done()
 
 #########################################################################
