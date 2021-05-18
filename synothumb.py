@@ -137,7 +137,9 @@ class convertVideo(threading.Thread):
                 print ("  [-] Now working on %s" % (self.videoPath))
                 if os.path.isdir(self.thumbDir) != 1:
                     try:os.makedirs(self.thumbDir)
-                    except:continue
+                    except:
+                        self.queueVID.task_done()
+                        continue
                 # Check video conversion command and convert video to flv
                 if self.is_tool("ffmpeg"):
                     self.ffmpegcmd = "ffmpeg -loglevel panic -i '%s' -y -ar 44100 -r 12 -ac 2 -f flv -qscale 5 -s 320x180 -aspect 320:180 '%s/SYNOPHOTO:FILM.flv'" % (self.videoPath,self.thumbDir) # ffmpeg replaced by avconv on ubuntu
@@ -162,7 +164,9 @@ class convertVideo(threading.Thread):
                     self.image.save(os.path.join(self.thumbDir,xlName))
                     self.image.thumbnail(mSize)
                     self.image.save(os.path.join(self.thumbDir,mName))
-                except:continue
+                except:
+                    self.queueVID.task_done()
+                    continue
             self.queueVID.task_done()
 
 #########################################################################
