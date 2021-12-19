@@ -2,7 +2,7 @@
 # cd; mkdir mnt_photo
 # sudo mount -t {synology-ip-address}:/volume1/photo mnt_photo/
 # Author:       phillips321
-# Co-authors:   devdogde, sirrahd, AndrewFreemantle
+# Co-authors:   devdogde, sirrahd, AndrewFreemantle, Clive Miller
 # License:      CC BY-SA 3.0
 # Use:          home use only, commercial use by permission only
 # Released:     www.phillips321.co.uk
@@ -49,43 +49,42 @@ class convertImage(threading.Thread):
                     try:os.makedirs(self.thumbDir)
                     except:continue
 
-                #Following if statements converts raw images using dcraw first
-                if os.path.splitext(self.imagePath)[1].lower() == ".cr2":
-                    self.dcrawcmd = "dcraw -c -b 8 -q 0 -w -H 5 '%s'" % self.imagePath
-                    self.dcraw_proc = subprocess.Popen(shlex.split(self.dcrawcmd), stdout=subprocess.PIPE)
-                    self.raw = StringIO(self.dcraw_proc.communicate()[0])
-                    self.image=Image.open(self.raw)
-                else:
-                    self.image=Image.open(self.imagePath)
-
-                ###### Check image orientation and rotate if necessary
-                ## code adapted from: http://www.lifl.fr/~riquetd/auto-rotating-pictures-using-pil.html
                 try:
-                    self.exif = self.image._getexif()
-                except:
-                    pass
+                    #Following if statements converts raw images using dcraw first
+                    if os.path.splitext(self.imagePath)[1].lower() == ".cr2":
+                        self.dcrawcmd = "dcraw -c -b 8 -q 0 -w -H 5 '%s'" % self.imagePath
+                        self.dcraw_proc = subprocess.Popen(shlex.split(self.dcrawcmd), stdout=subprocess.PIPE)
+                        self.raw = StringIO(self.dcraw_proc.communicate()[0])
+                        self.image=Image.open(self.raw)
+                    else:
+                        self.image=Image.open(self.imagePath)
 
-                if self.exif:
+                    ###### Check image orientation and rotate if necessary
+                    ## code adapted from: http://www.lifl.fr/~riquetd/auto-rotating-pictures-using-pil.html
+                    try:
+                        self.exif = self.image._getexif()
+                    except:
+                        pass
 
-                    self.orientation_key = 274 # cf ExifTags
-                    if self.orientation_key in self.exif:
-                        self.orientation = self.exif[self.orientation_key]
+                    if self.exif:
 
-                        rotate_values = {
-                            3: 180,
-                            6: 270,
-                            8: 90
-                        }
+                        self.orientation_key = 274 # cf ExifTags
+                        if self.orientation_key in self.exif:
+                            self.orientation = self.exif[self.orientation_key]
 
-                        try:
-                            if self.orientation in rotate_values:
-                                self.image=self.image.rotate(rotate_values[self.orientation])
-                        except:
-                            pass
+                            rotate_values = {
+                                3: 180,
+                                6: 270,
+                                8: 90
+                            }
+                            try:
+                                if self.orientation in rotate_values:
+                                    self.image=self.image.rotate(rotate_values[self.orientation])
+                            except:
+                                pass
 
-                #### end of orientation part
+                    #### end of orientation part
 
-                try:
                     self.image.thumbnail(xlSize, Image.ANTIALIAS)
                     self.image.save(os.path.join(self.thumbDir,xlName), quality=90)
                     self.image.thumbnail(lSize, Image.ANTIALIAS)
